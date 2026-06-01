@@ -124,6 +124,7 @@ let totalScore = 0;
 let askedInquiry = new Set();
 let donePrep = new Set();
 let prepExpanded = new Set(); // 记录哪些类别被展开
+let shuffledPrepOptions = null; // 进入准备步骤时一次性打乱，避免每次渲染跳变
 
 const PREP_CATEGORIES = {
   '医生点位':{
@@ -338,6 +339,18 @@ function renderOralPrep(){
       if(donePrep.has(opt.id)) doneOpts++;
     }
   }
+  // 进入准备步骤时一次性打乱所有选项，之后不再变更，避免点击后乱跳
+  if(!shuffledPrepOptions){
+    shuffledPrepOptions = {};
+    for(const [catName, cat] of Object.entries(PREP_CATEGORIES)){
+    const opts = [...cat.options];
+    for(let i = opts.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [opts[i], opts[j]] = [opts[j], opts[i]];
+    }
+    shuffledPrepOptions[catName] = {options: opts};
+    }
+  }
   main.innerHTML = `
     <div class="scene-header">STEP 2 · 口腔检查</div>
     <div class="scene-title">检查前准备</div>
@@ -353,7 +366,8 @@ function renderOralPrep(){
 
 function renderPrepSidebar(){
   let html = '<h3>📋 准备操作（点击类别展开）</h3>';
-  for(const [catName, cat] of Object.entries(PREP_CATEGORIES)){
+  const data = shuffledPrepOptions || PREP_CATEGORIES;
+  for(const [catName, cat] of Object.entries(data)){
     const expanded = prepExpanded.has(catName);
     const selectedCount = cat.options.filter(o=>donePrep.has(o.id)).length;
     html += `<div style="margin-bottom:6px">`;
@@ -534,7 +548,7 @@ function renderClinLog(){
         label = label.replace('主诉牙','').replace('混淆牙','').replace(/^[—\s]+/,'');
         html += `<div class="result-text">${c.type} — ${label}：${finding}</div>`;
         if(c.subtype === '视诊牙和牙列'){
-          html += `<div class="image-overlay"><div class="image-grid">${IMG_VIEW.map(f=>`<div><img src="${IMG_BASE}${f}" onclick="window.open(this.src)"><div class="cap">${f.replace('.JPG','').replace(/-/g,' ')}</div></div>`).join('')}</div></div>`;
+          html += `<div class="image-overlay"><div class="image-grid">${IMG_VIEW.map(f=>`<div><img src="${IMG_BASE}${f}" onclick="showImage(this.src)"><div class="cap">${f.replace('.JPG','').replace(/-/g,' ')}</div></div>`).join('')}</div></div>`;
         }
       }
     }
@@ -586,7 +600,7 @@ function renderAuxLog(){
       if(a.finding) html += `：${a.finding}`;
       html += `</div>`;
       if(a.image_required){
-        html += `<div class="image-single"><img src="${IMG_BASE}${IMG_XRAY}" onclick="window.open(this.src)"><div class="cap">根尖片 Xray</div></div>`;
+        html += `<div class="image-single"><img src="${IMG_BASE}${IMG_XRAY}" onclick="showImage(this.src)"><div class="cap">根尖片 Xray</div></div>`;
       }
     }
   }
@@ -977,6 +991,23 @@ function showScore(){
 function closeScore(){
   document.getElementById('scoreModal').classList.remove('show');
 }
+
+function showImage(src){
+  document.getElementById('lightboxImg').src = src;
+  document.getElementById('lightbox').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+function closeLightbox(){
+  document.getElementById('lightbox').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
 </script>
+
+<div class="lightbox-overlay" id="lightbox" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:2000;justify-content:center;align-items:center;cursor:pointer" onclick="closeLightbox()">
+  <img id="lightboxImg" style="max-width:90%;max-height:90%;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,0.5);object-fit:contain" src="">
+  <span style="position:absolute;top:20px;right:30px;color:#fff;font-size:32px;font-weight:bold;cursor:pointer">&times;</span>
+</div>
+
 </body>
 </html>
